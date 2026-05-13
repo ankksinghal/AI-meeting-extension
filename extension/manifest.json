@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "AI Meeting Copilot",
+  "version": "1.0.0",
+  "description": "AI Meeting Assistant",
+
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://meet.google.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js"]
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

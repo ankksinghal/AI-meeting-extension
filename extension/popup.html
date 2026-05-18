@@ -1,7 +1,40 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <title>
+      AI Meeting Copilot
+    </title>
+
+    <style>
+      body {
+        width: 300px;
+        padding: 16px;
+        font-family: Arial;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+
   <body>
-    <h3>AI Meeting Copilot</h3>
-    <button>Start Meeting Assistant</button>
+    <h2>AI Meeting Copilot</h2>
+
+    <p id="status">
+      Checking meeting...
+    </p>
+
+    <button id="openDashboard">
+      Open Dashboard
+    </button>
+
+    <script src="popup.js"></script>
   </body>
 </html>

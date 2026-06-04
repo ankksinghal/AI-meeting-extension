@@ -1,99 +1,161 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useState,
+} from "react";
 
-export default function TranscriptUpload() {
-  const [file, setFile] =
-    useState<File | null>(null);
+type Props = {
+  onNewSummary: (
+    summary: string
+  ) => void;
+};
 
+export default function TranscriptUpload({
+  onNewSummary,
+}: Props) {
   const [loading, setLoading] =
     useState(false);
 
-  const [result, setResult] =
-    useState("");
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] = useState<File | null>(
+    null
+  );
 
-const handleUpload = async () => {
-  if (!file) return;
+  const [
+    generatedFileName,
+    setGeneratedFileName,
+  ] = useState("");
 
-  try {
-    setLoading(true);
-
-    console.log("Reading file...");
-
-    const transcript =
-      await file.text();
-
-    console.log(
-      "Transcript:",
-      transcript
-    );
-
-    const response = await fetch(
-      "/api/summary",
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body: JSON.stringify({
-          transcript,
-        }),
+  const handleGenerate =
+    async () => {
+      // Prevent duplicate generation
+      if (
+        !selectedFile ||
+        generatedFileName ===
+          selectedFile.name
+      ) {
+        return;
       }
-    );
 
-    console.log(
-      "Response:",
-      response
-    );
+      setLoading(true);
 
-    const data =
-      await response.json();
+      try {
+        // Read uploaded file text
+        const text =
+          await selectedFile.text();
 
-    console.log("Data:", data);
+        // API call
+        const response =
+          await fetch(
+            "/api/summary",
+            {
+              method: "POST",
 
-    setResult(data.result);
-  } catch (error) {
-    console.error(
-      "Upload Error:",
-      error
-    );
-  } finally {
-    setLoading(false);
-  }
-};
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  transcript:
+                    text,
+                }
+              ),
+            }
+          );
+
+        const data =
+          await response.json();
+
+        // Update summary section
+        if (
+          data?.result
+        ) {
+          onNewSummary(
+            data.result
+          );
+
+          // Save generated file name
+          setGeneratedFileName(
+            selectedFile.name
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Summary Error:",
+          error
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
-    <div className="mt-8 bg-white border rounded-2xl p-6 shadow-sm">
-      <h2 className="text-2xl font-bold mb-4">
+    <div className="bg-white border rounded-2xl p-6 shadow-sm">
+      <h2 className="text-3xl font-bold mb-6">
         Upload Transcript
       </h2>
 
-      <input
-        type="file"
-        accept=".txt"
-        onChange={(e) =>
-          setFile(
-            e.target.files?.[0] || null
-          )
-        }
-      />
+      <div className="flex flex-col md:flex-row gap-4 md:items-center">
+        {/* File Upload */}
+        <input
+          type="file"
+          accept=".txt"
+          onChange={(e) => {
+            const file =
+              e.target
+                .files?.[0] ||
+              null;
 
-      <button
-        onClick={handleUpload}
-        disabled={loading}
-        className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-      >
-        {loading
-          ? "Processing..."
-          : "Generate Summary"}
-      </button>
+            setSelectedFile(
+              file
+            );
+          }}
+          className="border p-2 rounded-lg"
+        />
 
-      {result && (
-        <div className="mt-6 whitespace-pre-wrap bg-gray-100 p-4 rounded-xl">
-          {result}
+        {/* Generate Button */}
+        <button
+          onClick={
+            handleGenerate
+          }
+          disabled={
+            loading ||
+            !selectedFile ||
+            generatedFileName ===
+              selectedFile.name
+          }
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading
+            ? "Generating..."
+            : generatedFileName ===
+              selectedFile?.name
+            ? "Already Generated"
+            : "Generate Summary"}
+        </button>
+      </div>
+
+      {/* Selected File Info */}
+      {selectedFile && (
+        <div className="mt-4 text-sm text-gray-600">
+          Selected File:{" "}
+          <span className="font-medium">
+            {
+              selectedFile.name
+            }
+          </span>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {generatedFileName ===
+        selectedFile?.name && (
+        <div className="mt-3 text-green-600 font-medium">
+          Summary already generated for this file.
         </div>
       )}
     </div>

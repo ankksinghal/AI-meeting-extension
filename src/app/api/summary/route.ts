@@ -27,11 +27,29 @@ export async function POST(
             {
               role: "user",
 
-              content: `
-Generate:
+            content: `
+You are an AI Meeting Copilot for software engineering teams.
+
+Analyze the meeting transcript carefully and generate:
+
 1. Meeting Summary
 2. Key Discussion Points
 3. Action Items
+
+Instructions:
+- Correct obvious speech-to-text mistakes.
+- Convert incorrect technical terms into proper software terminology.
+Examples:
+  - "Pigma" → "Figma"
+  - "I pay" → "API"
+  - "react yes" → "React.js"
+- Improve grammar slightly while preserving meaning.
+- Understand both structured and unstructured meeting conversations.
+- Do not invent information.
+- Generate action items only if clearly mentioned.
+- If transcript is too short like "hello", mark it as informal conversation.
+
+Return response in professional format.
 
 Transcript:
 ${transcript}

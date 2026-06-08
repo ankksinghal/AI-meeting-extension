@@ -27,7 +27,7 @@ export async function POST(
             {
               role: "user",
 
-            content: `
+              content: `
 You are an AI Meeting Copilot for software engineering teams.
 
 Analyze the meeting transcript carefully and generate:

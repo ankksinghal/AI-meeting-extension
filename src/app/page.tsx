@@ -11,7 +11,6 @@ import UserLogin from "../components/UserLogin";
 import Meetings from "../components/Meetings";
 import TranscriptUpload from "../components/TranscriptUpload";
 import SummaryList from "../components/SummaryList";
-import MeetingHistory from "../components/MeetingHistory";
 import LiveTranscript from "../components/LiveTranscript";
 
 type Meeting = {
@@ -22,9 +21,17 @@ type Meeting = {
   };
 
   hangoutLink?: string;
+
+  attendees?: {
+    email: string;
+  }[];
+
+  organizer?: {
+    email: string;
+  };
 };
 
-type MeetingHistoryItem = {
+type HistoryItem = {
   id: number;
   title: string;
   summary: string;
@@ -35,87 +42,82 @@ export default function Home() {
   const { data: session } =
     useSession();
 
-  // Safe user email
-  const userEmail =
-    session?.user?.email;
-
   const [meetings, setMeetings] =
     useState<Meeting[]>([]);
 
-  // Current active summary
   const [summaries, setSummaries] =
     useState<string[]>([]);
 
-  // User-wise history
   const [history, setHistory] =
-    useState<
-      MeetingHistoryItem[]
-    >([]);
+    useState<HistoryItem[]>(
+      []
+    );
 
   const [
     actionItemsCount,
     setActionItemsCount,
   ] = useState(0);
 
-  // Load user-wise history
+  const [
+    selectedMeeting,
+    setSelectedMeeting,
+  ] = useState<Meeting | null>(
+    null
+  );
+
   useEffect(() => {
-    if (!userEmail) {
+    if (
+      typeof window ===
+      "undefined"
+    )
       return;
-    }
 
-    const loadHistory =
-      async () => {
-        const storageKey = `meeting-history-${userEmail}`;
+    const email =
+      session?.user?.email;
 
-        const savedHistory =
-          localStorage.getItem(
-            storageKey
+    if (!email) return;
+
+    const savedHistory =
+      localStorage.getItem(
+        `meeting-history-${email}`
+      );
+
+    if (savedHistory) {
+      try {
+        const rawHistory =
+          JSON.parse(savedHistory);
+
+        const parsedHistory: HistoryItem[] =
+          rawHistory.filter(
+            (
+              item: HistoryItem
+            ) =>
+              item &&
+              item.summary &&
+              item.title
           );
 
-        if (!savedHistory) {
-          return;
-        }
-
-        const parsedHistory: MeetingHistoryItem[] =
-          JSON.parse(
-            savedHistory
+        queueMicrotask(() => {
+          setHistory(
+            parsedHistory
           );
-
-        await Promise.resolve();
-
-        setHistory(
-          parsedHistory
+        });
+      } catch (error) {
+        console.error(
+          "History Parse Error:",
+          error
         );
-      };
-
-    loadHistory();
-  }, [userEmail]);
-
-  // Save user-wise history
-  useEffect(() => {
-    if (!userEmail) {
-      return;
+      }
     }
+  }, [session]);
 
-    const storageKey = `meeting-history-${userEmail}`;
-
-    localStorage.setItem(
-      storageKey,
-      JSON.stringify(
-        history
-      )
-    );
-  }, [history, userEmail]);
-
-  // Fetch upcoming meetings
   useEffect(() => {
     const fetchMeetings =
       async () => {
         if (
           !session?.accessToken
-        ) {
+        )
           return;
-        }
 
         try {
           const now =
@@ -139,7 +141,7 @@ export default function Home() {
 
           const response =
             await fetch(
-              `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`,
+              `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&maxResults=20&singleEvents=true&orderBy=startTime`,
               {
                 headers: {
                   Authorization: `Bearer ${session.accessToken}`,
@@ -150,7 +152,6 @@ export default function Home() {
           const data =
             await response.json();
 
-          // Only Google Meet meetings
           const filteredMeetings =
             (
               data.items ||
@@ -159,9 +160,7 @@ export default function Home() {
               (
                 meeting: Meeting
               ) =>
-                Boolean(
-                  meeting.hangoutLink
-                )
+                meeting.hangoutLink
             );
 
           setMeetings(
@@ -178,33 +177,66 @@ export default function Home() {
     fetchMeetings();
   }, [session]);
 
-  // Handle Summary
-const handleNewSummary = (
-  summary: string
-) => {
-  setSummaries((prev) => [
-    summary,
-    ...prev,
-  ]);
+  const handleNewSummary = (
+    summary: string
+  ) => {
+    setSummaries((prev) => [
+      summary,
+      ...prev,
+    ]);
 
-  const actionSection =
-    summary.split(
-      "Action Items:"
-    )[1] || "";
+    setHistory((prev) => {
+      const newHistoryItem: HistoryItem =
+      {
+        id: Date.now(),
 
-  const actionMatches =
-    actionSection.match(
-      /^(\d+\.|-)/gm
+        title:
+          selectedMeeting?.summary ||
+          "Untitled Meeting",
+
+        summary,
+
+        generatedAt:
+          new Date().toLocaleString(),
+      };
+
+      const updatedHistory = [
+        newHistoryItem,
+        ...prev,
+      ];
+
+      if (
+        session?.user?.email
+      ) {
+        localStorage.setItem(
+          `meeting-history-${session.user.email}`,
+          JSON.stringify(
+            updatedHistory
+          )
+        );
+      }
+
+      return updatedHistory;
+    });
+
+    const actionSection =
+      summary.split(
+        "Action Items:"
+      )[1] || "";
+
+    const actionMatches =
+      actionSection.match(
+        /^(\d+\.|-)/gm
+      );
+
+    setActionItemsCount(
+      (prev) =>
+        prev +
+        (actionMatches
+          ? actionMatches.length
+          : 0)
     );
-
-  setActionItemsCount(
-    (prev) =>
-      prev +
-      (actionMatches
-        ? actionMatches.length
-        : 0)
-  );
-};
+  };
 
   return (
     <main className="min-h-screen bg-gray-100">
@@ -220,10 +252,7 @@ const handleNewSummary = (
           </div>
 
           <span>
-            {
-              session?.user
-                ?.name
-            }
+            {session?.user?.name}
           </span>
         </div>
       </header>
@@ -259,10 +288,9 @@ const handleNewSummary = (
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Upcoming Meetings */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="text-gray-500 text-sm">
-                Upcoming Meetings
+                Total Meetings
               </h2>
 
               <p className="text-3xl font-bold mt-2">
@@ -272,7 +300,6 @@ const handleNewSummary = (
               </p>
             </div>
 
-            {/* AI Summaries */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="text-gray-500 text-sm">
                 AI Summaries
@@ -280,12 +307,11 @@ const handleNewSummary = (
 
               <p className="text-3xl font-bold mt-2">
                 {
-                  summaries.length
+                  history.length
                 }
               </p>
             </div>
 
-            {/* Action Items */}
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="text-gray-500 text-sm">
                 Action Items
@@ -305,10 +331,13 @@ const handleNewSummary = (
               meetings={
                 meetings
               }
+              onSelectMeeting={
+                setSelectedMeeting
+              }
             />
           </div>
 
-          {/* Upload Transcript */}
+          {/* Upload */}
           <div className="mt-8">
             <TranscriptUpload
               onNewSummary={
@@ -323,10 +352,13 @@ const handleNewSummary = (
               onNewSummary={
                 handleNewSummary
               }
+              selectedMeeting={
+                selectedMeeting
+              }
             />
           </div>
 
-          {/* Current AI Summary */}
+          {/* AI Summary */}
           <div className="mt-8">
             <SummaryList
               summaries={
@@ -336,13 +368,47 @@ const handleNewSummary = (
           </div>
 
           {/* Meeting History */}
-          {/* <div className="mt-8">
-            <MeetingHistory
-              history={
-                history
-              }
-            />
-          </div> */}
+          <div className="mt-8 bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-2xl font-bold mb-4">
+              Meeting History
+            </h2>
+
+            {history.length ===
+              0 ? (
+              <p>
+                No meeting history
+                available
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {history
+                  .slice(0, 5)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="border rounded-xl p-4"
+                    >
+                      <h3 className="font-semibold text-lg">
+                        {item.title}
+                      </h3>
+
+                      <p className="text-sm text-gray-500 mb-2">
+                        {
+                          item.generatedAt
+                        }
+                      </p>
+
+                      <pre className="whitespace-pre-wrap text-sm text-gray-700">
+                        {
+                          item.summary
+                        }
+                      </pre>
+                    </div>
+                  )
+                  )}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </main>

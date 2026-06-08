@@ -1,23 +1,48 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
 } from "react";
+
+type Meeting = {
+  summary: string;
+
+  attendees?: {
+    email: string;
+  }[];
+};
 
 type Props = {
   onNewSummary: (
     summary: string
   ) => void;
+
+  selectedMeeting:
+  | Meeting
+  | null;
 };
 
-declare global {
-  interface Window {
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
+type SpeechRecognitionResultItem =
+  {
+    transcript: string;
+  };
 
-  interface SpeechRecognition
-    extends EventTarget {
+type SpeechRecognitionResultGroup =
+  {
+    0: SpeechRecognitionResultItem;
+
+    length: number;
+  };
+
+type SpeechRecognitionEventType =
+  {
+    results: SpeechRecognitionResultGroup[];
+  };
+
+type SpeechRecognitionType =
+  {
     continuous: boolean;
 
     interimResults: boolean;
@@ -28,16 +53,33 @@ declare global {
 
     stop: () => void;
 
-    onresult: (
-      event: SpeechRecognitionEvent
-    ) => void;
+    onresult:
+    | ((
+      event: SpeechRecognitionEventType
+    ) => void)
+    | null;
 
-    onend: () => void;
+    onerror:
+    | ((
+      event: Event
+    ) => void)
+    | null;
+  };
+
+type SpeechRecognitionConstructor =
+  new () => SpeechRecognitionType;
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
 
 export default function LiveTranscript({
   onNewSummary,
+  selectedMeeting,
 }: Props) {
   const [
     transcript,
@@ -55,91 +97,87 @@ export default function LiveTranscript({
   ] = useState(false);
 
   const recognitionRef =
-    useRef<SpeechRecognition | null>(
+    useRef<SpeechRecognitionType | null>(
       null
     );
 
-  // START RECORDING
+  useEffect(() => {
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition ||
+      window.webkitSpeechRecognition;
+
+    if (
+      !SpeechRecognitionAPI
+    ) {
+      alert(
+        "Speech Recognition not supported"
+      );
+
+      return;
+    }
+
+    const recognition =
+      new SpeechRecognitionAPI();
+
+    recognition.continuous =
+      true;
+
+    recognition.interimResults =
+      true;
+
+    recognition.lang =
+      "en-US";
+
+    recognition.onresult = (
+      event
+    ) => {
+      let finalTranscript =
+        "";
+
+      for (
+        let i = 0;
+        i <
+        event.results.length;
+        i++
+      ) {
+        finalTranscript +=
+          event.results[i][0]
+            .transcript + " ";
+      }
+
+      setTranscript(
+        finalTranscript
+      );
+    };
+
+    recognition.onerror = (
+      event
+    ) => {
+      console.error(
+        "Speech Recognition Error:",
+        event
+      );
+    };
+
+    recognitionRef.current =
+      recognition;
+  }, []);
+
   const startRecording =
     () => {
       if (
-        !window.webkitSpeechRecognition
+        recognitionRef.current
       ) {
-        alert(
-          "Speech Recognition not supported in this browser"
-        );
+        recognitionRef.current.start();
 
-        return;
+        setIsRecording(
+          true
+        );
       }
-
-      const recognition =
-        new window.webkitSpeechRecognition();
-
-      recognition.continuous =
-        true;
-
-      recognition.interimResults =
-        true;
-
-      recognition.lang =
-        "en-US";
-
-      recognition.onresult = (
-        event
-      ) => {
-        let finalTranscript =
-          "";
-
-        for (
-          let i = 0;
-          i <
-          event.results.length;
-          i++
-        ) {
-          finalTranscript +=
-            event.results[
-              i
-            ][0].transcript;
-        }
-
-        setTranscript(
-          finalTranscript
-        );
-      };
-
-      recognition.onend =
-        () => {
-          setIsRecording(
-            false
-          );
-        };
-
-      recognition.start();
-
-      recognitionRef.current =
-        recognition;
-
-      setIsRecording(true);
     };
 
-  // STOP RECORDING
   const stopRecording =
     () => {
-      recognitionRef.current?.stop();
-
-      setIsRecording(false);
-    };
-
-  // GENERATE SUMMARY
-const generateSummary =
-  async () => {
-    if (!transcript.trim())
-      return;
-
-    try {
-      setLoading(true);
-
-      // Stop recording automatically
       if (
         recognitionRef.current
       ) {
@@ -149,67 +187,185 @@ const generateSummary =
           false
         );
       }
+    };
 
-      const response =
-        await fetch(
-          "/api/summary",
-          {
-            method: "POST",
+  const normalizeTranscript = (
+    text: string
+  ) => {
+    const corrections: Record<
+      string,
+      string
+    > = {
+      "i pay": "API",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+      pigma: "Figma",
 
-            body: JSON.stringify(
-              {
-                transcript,
-              }
-            ),
-          }
-        );
+      "react yes":
+        "React.js",
 
-      const data =
-        await response.json();
+      "next yes":
+        "Next.js",
 
-      if (data.result) {
-        onNewSummary(
-          data.result
-        );
+      "type script":
+        "TypeScript",
 
-        // Clear textarea after success
-        setTranscript("");
-      } else {
-        alert(
-          "Failed to generate summary"
-        );
+      "java script":
+        "JavaScript",
+
+      "node yes":
+        "Node.js",
+
+      "tail wind":
+        "Tailwind",
+
+      "mongo db":
+        "MongoDB",
+    };
+
+    let updatedText =
+      text.toLowerCase();
+
+    Object.entries(
+      corrections
+    ).forEach(
+      ([wrong, correct]) => {
+        updatedText =
+          updatedText.replaceAll(
+            wrong,
+            correct
+          );
       }
-    } catch (error) {
-      console.error(
-        "Summary Error:",
-        error
-      );
+    );
 
-      alert(
-        "Something went wrong"
-      );
-    } finally {
-      setLoading(false);
-    }
+    return updatedText;
   };
+
+  const generateSummary =
+    async () => {
+      if (!transcript.trim())
+        return;
+
+      try {
+        setLoading(true);
+
+        stopRecording();
+
+        const cleanedTranscript =
+          normalizeTranscript(
+            transcript
+          );
+
+        const response =
+          await fetch(
+            "/api/summary",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify(
+                {
+                  transcript:
+                    cleanedTranscript,
+                }
+              ),
+            }
+          );
+
+        const data: {
+          result?: string;
+        } =
+          await response.json();
+
+        if (data.result) {
+          onNewSummary(
+            data.result
+          );
+
+          if (
+            selectedMeeting?.attendees
+          ) {
+            const attendees =
+              selectedMeeting.attendees.map(
+                (
+                  attendee
+                ) =>
+                  attendee.email
+              );
+
+            await fetch(
+              "/api/send-email",
+              {
+                method:
+                  "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify(
+                  {
+                    attendees,
+
+                    meetingTitle:
+                      selectedMeeting.summary,
+
+                    summary:
+                      data.result,
+                  }
+                ),
+              }
+            );
+          }
+
+          setTranscript("");
+        } else {
+          alert(
+            "Failed to generate summary"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Summary Error:",
+          error
+        );
+
+        alert(
+          "Something went wrong"
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 mt-8">
-      <h2 className="text-3xl font-bold mb-6">
-        Live Meeting Capture
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+      <h2 className="text-2xl font-bold mb-6">
+        Live Meeting Transcript
       </h2>
 
-      <div className="flex gap-4 mb-6">
+      <textarea
+        value={transcript}
+        onChange={(e) =>
+          setTranscript(
+            e.target.value
+          )
+        }
+        placeholder="Live transcript will appear here..."
+        className="w-full h-40 border rounded-xl p-4 outline-none"
+      />
+
+      <div className="flex gap-4 mt-4">
         {!isRecording ? (
           <button
             onClick={
               startRecording
             }
-            className="bg-green-600 text-white px-6 py-3 rounded-xl"
+            className="bg-green-600 text-white px-4 py-2 rounded-lg"
           >
             Start Recording
           </button>
@@ -218,7 +374,7 @@ const generateSummary =
             onClick={
               stopRecording
             }
-            className="bg-red-600 text-white px-6 py-3 rounded-xl"
+            className="bg-red-600 text-white px-4 py-2 rounded-lg"
           >
             Stop Recording
           </button>
@@ -230,26 +386,15 @@ const generateSummary =
           }
           disabled={
             loading ||
-            !transcript
+            !transcript.trim()
           }
-          className="bg-blue-600 text-white px-6 py-3 rounded-xl disabled:opacity-50"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
         >
           {loading
             ? "Generating..."
             : "Generate AI Summary"}
         </button>
       </div>
-
-      <textarea
-        value={transcript}
-        onChange={(e) =>
-          setTranscript(
-            e.target.value
-          )
-        }
-        placeholder="Live transcript will appear here..."
-        className="w-full min-h-[220px] border rounded-xl p-4 outline-none"
-      />
     </div>
   );
 }

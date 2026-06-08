@@ -19,7 +19,7 @@ export default function MeetingHistory({
       </h2>
 
       {history.length ===
-      0 ? (
+        0 ? (
         <p className="text-gray-500">
           No meeting history yet.
         </p>

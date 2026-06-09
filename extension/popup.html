@@ -4,34 +4,28 @@
     <title>
       AI Meeting Copilot
     </title>
-
-    <style>
-      body {
-        width: 300px;
-        padding: 16px;
-        font-family: Arial;
-      }
-
-      button {
-        width: 100%;
-        padding: 10px;
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-      }
-    </style>
+    <link
+      rel="stylesheet"
+      href="popup.css"
+    />
   </head>
 
-  <body>
-    <h2>AI Meeting Copilot</h2>
+  <body class="w-[300px] bg-white p-4 font-sans text-slate-900">
+    <h2 class="mb-3 text-xl font-bold">
+      AI Meeting Copilot
+    </h2>
 
-    <p id="status">
+    <p
+      id="status"
+      class="mb-4 text-sm text-slate-600"
+    >
       Checking meeting...
     </p>
 
-    <button id="openDashboard">
+    <button
+      id="openDashboard"
+      class="w-full rounded-lg bg-blue-600 px-4 py-2.5 font-medium text-white hover:bg-blue-700"
+    >
       Open Dashboard
     </button>
 

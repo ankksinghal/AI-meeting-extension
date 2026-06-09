@@ -89,6 +89,8 @@ const SYSTEM_TRANSCRIPT_PATTERNS =
     /more options pop-up menu/i,
     /scheduled for\s+\d{1,2}:\d{2}/i,
     /^scheduled for:\s+/i,
+    /^scheduled for:?\s+(mon|tue|wed|thu|fri|sat|sun)\b/i,
+    /\bscheduled for:?\s+(mon|tue|wed|thu|fri|sat|sun)\b/i,
     /arrow_downward\s*jump to bottom/i,
     /jump to bottom/i,
     /others might still see your full video/i,
@@ -311,6 +313,11 @@ export default function LiveTranscript({
         "Transcript cleared."
       );
 
+      clearTranscriptState();
+    };
+
+  const clearTranscriptState =
+    () => {
       setExtensionState(
         (current) => ({
           ...current,
@@ -394,6 +401,8 @@ export default function LiveTranscript({
           data.result
         );
 
+        clearTranscriptState();
+
         if (
           selectedMeeting?.attendees
         ) {
@@ -430,7 +439,7 @@ export default function LiveTranscript({
         }
 
         setStatusMessage(
-          "Summary generated."
+          "Summary generated. Transcript cleared."
         );
       } catch (error) {
         console.error(
@@ -608,9 +617,6 @@ function postToExtension(
 function formatTranscriptLine(
   line: TranscriptLine
 ) {
-  const timestamp =
-    formatTime(line.timestamp);
-
   const speaker =
     line.speaker ||
     "Unknown speaker";
@@ -620,11 +626,7 @@ function formatTranscriptLine(
       line.text
     );
 
-  return `${
-    timestamp
-      ? `[${timestamp}] `
-      : ""
-  }${speaker}: ${text}`;
+  return `${speaker}: ${text}`;
 }
 
 function isDisplayableTranscriptLine(
@@ -888,34 +890,6 @@ function normalizeTranscriptText(
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
-}
-
-function formatTime(
-  timestamp?: string
-) {
-  if (!timestamp) {
-    return "";
-  }
-
-  const date =
-    new Date(timestamp);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  return date.toLocaleTimeString(
-    [],
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }
-  );
 }
 
 function getConnectionStatus(

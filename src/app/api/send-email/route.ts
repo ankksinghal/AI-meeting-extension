@@ -33,14 +33,11 @@ export async function POST(
 
       subject: `Meeting Summary - ${meetingTitle}`,
 
-      html: `
-        <div style="font-family: Arial; padding:20px;">
-          <h2>AI Meeting Summary</h2>
+      text: `AI Meeting Summary\n\n${summary}`,
 
-          <pre style="white-space: pre-wrap;">
-${summary}
-          </pre>
-        </div>
+      html: `
+        <h2>AI Meeting Summary</h2>
+        <pre>${escapeHtml(summary)}</pre>
       `,
     });
 
@@ -60,4 +57,13 @@ ${summary}
       }
     );
   }
+}
+
+function escapeHtml(value: string) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }

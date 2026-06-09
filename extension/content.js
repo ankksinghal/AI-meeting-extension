@@ -83,6 +83,8 @@
       /more options pop-up menu/i,
       /scheduled for\s+\d{1,2}:\d{2}/i,
       /^scheduled for:\s+/i,
+      /^scheduled for:?\s+(mon|tue|wed|thu|fri|sat|sun)\b/i,
+      /\bscheduled for:?\s+(mon|tue|wed|thu|fri|sat|sun)\b/i,
       /arrow_downward\s*jump to bottom/i,
       /jump to bottom/i,
       /others might still see your full video/i,

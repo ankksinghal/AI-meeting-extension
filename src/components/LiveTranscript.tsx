@@ -84,10 +84,11 @@ const SYSTEM_TRANSCRIPT_PATTERNS =
     /chevron_right/i,
     /skin tone/i,
     /^previous\s+.*next/i,
-    /\bin\s+\d+\s+minutes\b/i,
+    /\bin\s+[\d,]+\s+minutes\b/i,
     /more_vert\s*more options/i,
     /more options pop-up menu/i,
     /scheduled for\s+\d{1,2}:\d{2}/i,
+    /^scheduled for:\s+/i,
     /arrow_downward\s*jump to bottom/i,
     /jump to bottom/i,
     /others might still see your full video/i,
@@ -284,7 +285,7 @@ export default function LiveTranscript({
 
     setStatusMessage(
       enabled
-        ? "Listening for Google Meet captions."
+        ? "Listening for Google Meet captions. Captions will be enabled automatically when possible."
         : "Transcript capture stopped."
     );
 
@@ -332,7 +333,7 @@ export default function LiveTranscript({
         !capturedTranscript
       ) {
         setSummaryError(
-          "No transcript captured yet. Turn on captions in Google Meet and speak for a moment before generating a summary."
+          "No transcript captured yet. Start recording and speak in Google Meet before generating a summary."
         );
 
         return;
@@ -490,7 +491,7 @@ export default function LiveTranscript({
 
       {!hasTranscript && (
         <p className="mt-3 text-sm text-gray-500">
-          No transcript captured yet. Turn on live captions in Google Meet, then keep speaking or wait for the next caption update.
+          No transcript captured yet. Start recording, then speak in Google Meet. Captions will be enabled automatically when possible.
         </p>
       )}
 
@@ -549,7 +550,6 @@ export default function LiveTranscript({
             clearTranscript
           }
           disabled={
-            !isBridgeReady ||
             !hasTranscript
           }
           className="bg-gray-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
@@ -748,16 +748,13 @@ function isMeetingCountdownTranscript(
   normalizedSpeaker: string
 ) {
   return (
-    /^in\s+\d+\s+minutes?$/i.test(
+    /^in\s+[\d,]+\s+minutes?$/i.test(
       normalizeTranscriptText(
         text
       )
     ) &&
-    Boolean(normalizedSpeaker) &&
     normalizedSpeaker !==
-      "you" &&
-    normalizedSpeaker !==
-      "unknown speaker"
+      "you"
   );
 }
 

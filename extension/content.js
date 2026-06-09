@@ -78,10 +78,11 @@
       /chevron_right/i,
       /skin tone/i,
       /^previous\s+.*next/i,
-      /\bin\s+\d+\s+minutes\b/i,
+      /\bin\s+[\d,]+\s+minutes\b/i,
       /more_vert\s*more options/i,
       /more options pop-up menu/i,
       /scheduled for\s+\d{1,2}:\d{2}/i,
+      /^scheduled for:\s+/i,
       /arrow_downward\s*jump to bottom/i,
       /jump to bottom/i,
       /others might still see your full video/i,
@@ -160,6 +161,11 @@
       meetingCode,
     });
 
+    window.setTimeout(
+      ensureMeetCaptionsEnabled,
+      1500
+    );
+
     chrome.storage.local.get(
       [CAPTURE_ENABLED_KEY],
       (result) => {
@@ -167,6 +173,10 @@
           result[
             CAPTURE_ENABLED_KEY
           ] !== false;
+
+        if (captureEnabled) {
+          ensureMeetCaptionsEnabled();
+        }
       }
     );
 
@@ -185,6 +195,10 @@
             changes[
               CAPTURE_ENABLED_KEY
             ].newValue !== false;
+
+          if (captureEnabled) {
+            ensureMeetCaptionsEnabled();
+          }
         }
       }
     );
@@ -197,6 +211,10 @@
         ) {
           captureEnabled =
             Boolean(message.enabled);
+
+          if (captureEnabled) {
+            ensureMeetCaptionsEnabled();
+          }
         }
       }
     );
@@ -216,7 +234,13 @@
     );
 
     window.setInterval(
-      scanCaptions,
+      () => {
+        if (captureEnabled) {
+          ensureMeetCaptionsEnabled();
+        }
+
+        scanCaptions();
+      },
       1000
     );
 
@@ -358,6 +382,21 @@
 
       return rowTimestamps.get(
         element
+      );
+    }
+
+    function ensureMeetCaptionsEnabled() {
+      const button =
+        findTurnOnCaptionsButton();
+
+      if (!button) {
+        return;
+      }
+
+      button.click();
+
+      console.log(
+        "AI Meeting Copilot: enabled Google Meet captions"
       );
     }
   }
@@ -558,6 +597,70 @@
 
     return Array.from(
       new Set(documents)
+    );
+  }
+
+  function findTurnOnCaptionsButton() {
+    const selector =
+      'button, [role="button"]';
+
+    const candidates =
+      getCaptionDocuments().flatMap(
+        (captionDocument) =>
+          Array.from(
+            captionDocument.querySelectorAll(
+              selector
+            )
+          )
+      );
+
+    return (
+      candidates.find((element) => {
+        if (
+          !isVisible(element) ||
+          !isCaptionControl(element)
+        ) {
+          return false;
+        }
+
+        const label =
+          [
+            element.getAttribute(
+              "aria-label"
+            ),
+            element.getAttribute(
+              "data-tooltip"
+            ),
+            element.getAttribute(
+              "title"
+            ),
+            getCleanText(element),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+        return (
+          label.includes(
+            "caption"
+          ) &&
+          (
+            label.includes(
+              "turn on"
+            ) ||
+            label.includes(
+              "show"
+            ) ||
+            label.includes(
+              "closed_caption"
+            )
+          ) &&
+          !label.includes(
+            "turn off"
+          ) &&
+          !label.includes("hide")
+        );
+      }) || null
     );
   }
 
@@ -1327,14 +1430,10 @@
     normalizedSpeaker
   ) {
     return (
-      /^in\s+\d+\s+minutes?$/.test(
+      /^in\s+[\d,]+\s+minutes?$/.test(
         normalizedText
       ) &&
-      normalizedSpeaker &&
-      normalizedSpeaker !==
-        "you" &&
-      normalizedSpeaker !==
-        "unknown speaker"
+      normalizedSpeaker !== "you"
     );
   }
 

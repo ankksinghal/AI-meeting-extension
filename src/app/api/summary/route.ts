@@ -1,5 +1,9 @@
 import OpenAI from "openai";
 
+type SummaryRequestBody = {
+  transcript?: unknown;
+};
+
 const client = new OpenAI({
   apiKey:
     process.env.OPENROUTER_API_KEY,
@@ -12,10 +16,27 @@ export async function POST(
   req: Request
 ) {
   try {
-    const body = await req.json();
+    const body =
+      (await req.json()) as SummaryRequestBody;
 
     const transcript =
       body.transcript;
+
+    if (
+      typeof transcript !==
+        "string" ||
+      !transcript.trim()
+    ) {
+      return Response.json(
+        {
+          error:
+            "Transcript is required before generating a summary.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
     const completion =
       await client.chat.completions.create(
@@ -40,9 +61,9 @@ Instructions:
 - Correct obvious speech-to-text mistakes.
 - Convert incorrect technical terms into proper software terminology.
 Examples:
-  - "Pigma" → "Figma"
-  - "I pay" → "API"
-  - "react yes" → "React.js"
+  - "Pigma" -> "Figma"
+  - "I pay" -> "API"
+  - "react yes" -> "React.js"
 - Improve grammar slightly while preserving meaning.
 - Understand both structured and unstructured meeting conversations.
 - Do not invent information.
@@ -52,7 +73,7 @@ Examples:
 Return response in professional format.
 
 Transcript:
-${transcript}
+${transcript.trim()}
 `,
             },
           ],

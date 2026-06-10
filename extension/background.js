@@ -115,7 +115,15 @@ chrome.runtime.onMessage.addListener(
   }
 );
 
-async function getTranscriptState() {
+async function getTranscriptState(
+  options = {}
+) {
+  if (
+    options.syncMeetTabs !== false
+  ) {
+    await syncActiveMeetTabs();
+  }
+
   const state =
     await chrome.storage.local.get(
       [
@@ -147,9 +155,25 @@ async function handleMeetActive(
   meetingCode
 ) {
   if (!url) {
-    return getTranscriptState();
+    return getTranscriptState({
+      syncMeetTabs: false,
+    });
   }
 
+  await rememberMeetTab(
+    url,
+    meetingCode
+  );
+
+  return getTranscriptState({
+    syncMeetTabs: false,
+  });
+}
+
+async function rememberMeetTab(
+  url,
+  meetingCode
+) {
   const state =
     await chrome.storage.local.get(
       [
@@ -185,8 +209,94 @@ async function handleMeetActive(
         }
       : {}),
   });
+}
 
-  return getTranscriptState();
+async function syncActiveMeetTabs() {
+  const tabs =
+    await queryTabs({
+      url: "https://meet.google.com/*",
+    });
+
+  const meetTabs =
+    tabs.filter((tab) =>
+      isMeetTabUrl(tab.url)
+    );
+
+  if (!meetTabs.length) {
+    return;
+  }
+
+  const activeMeetTab =
+    meetTabs.find(
+      (tab) => tab.active
+    ) || meetTabs[0];
+
+  const meetUrl =
+    activeMeetTab.url || "";
+
+  await rememberMeetTab(
+    meetUrl,
+    getMeetingCodeFromUrl(
+      meetUrl
+    )
+  );
+
+  await Promise.all(
+    meetTabs.map(
+      ensureMeetContentScript
+    )
+  );
+}
+
+function queryTabs(queryInfo) {
+  return new Promise(
+    (resolve) => {
+      chrome.tabs.query(
+        queryInfo,
+        (tabs) => {
+          const error =
+            chrome.runtime.lastError;
+
+          if (error) {
+            console.debug(
+              "Could not query tabs:",
+              error.message
+            );
+
+            resolve([]);
+            return;
+          }
+
+          resolve(tabs || []);
+        }
+      );
+    }
+  );
+}
+
+async function ensureMeetContentScript(
+  tab
+) {
+  if (
+    !tab.id ||
+    !chrome.scripting
+  ) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: {
+        tabId: tab.id,
+      },
+      files: ["content.js"],
+    });
+  } catch (error) {
+    console.debug(
+      "Could not inject Meet content script:",
+      error
+    );
+  }
 }
 
 async function upsertTranscriptLine(
@@ -418,6 +528,30 @@ function notifyMeetTabs(message) {
       });
     }
   );
+}
+
+function isMeetTabUrl(url) {
+  try {
+    return (
+      new URL(url).hostname ===
+      "meet.google.com"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getMeetingCodeFromUrl(url) {
+  try {
+    return (
+      new URL(url).pathname
+        .split("/")
+        .filter(Boolean)[0] ||
+      ""
+    );
+  } catch {
+    return "";
+  }
 }
 
 function normalizeText(text) {

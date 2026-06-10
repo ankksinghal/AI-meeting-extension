@@ -30,7 +30,6 @@ export default function TranscriptUpload({
 
   const handleGenerate =
     async () => {
-      // Prevent duplicate generation
       if (
         !selectedFile ||
         generatedFileName ===
@@ -42,11 +41,9 @@ export default function TranscriptUpload({
       setLoading(true);
 
       try {
-        // Read uploaded file text
         const text =
           await selectedFile.text();
 
-        // API call
         const response =
           await fetch(
             "/api/summary",
@@ -70,7 +67,6 @@ export default function TranscriptUpload({
         const data =
           await response.json();
 
-        // Update summary section
         if (
           data?.result
         ) {
@@ -78,7 +74,6 @@ export default function TranscriptUpload({
             data.result
           );
 
-          // Save generated file name
           setGeneratedFileName(
             selectedFile.name
           );
@@ -100,7 +95,6 @@ export default function TranscriptUpload({
       </h2>
 
       <div className="flex flex-col md:flex-row gap-4 md:items-center">
-        {/* File Upload */}
         <input
           type="file"
           accept=".txt"
@@ -117,7 +111,6 @@ export default function TranscriptUpload({
           className="border p-2 rounded-lg"
         />
 
-        {/* Generate Button */}
         <button
           onClick={
             handleGenerate
@@ -139,7 +132,6 @@ export default function TranscriptUpload({
         </button>
       </div>
 
-      {/* Selected File Info */}
       {selectedFile && (
         <div className="mt-4 text-sm text-gray-600">
           Selected File:{" "}
@@ -151,7 +143,6 @@ export default function TranscriptUpload({
         </div>
       )}
 
-      {/* Success Message */}
       {generatedFileName ===
         selectedFile?.name && (
         <div className="mt-3 text-green-600 font-medium">

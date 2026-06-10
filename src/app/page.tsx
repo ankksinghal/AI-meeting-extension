@@ -240,7 +240,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-100">
-      {/* Header */}
       <header className="bg-slate-900 text-white px-8 py-4 flex items-center justify-between shadow-md">
         <h1 className="text-2xl font-bold">
           AI Meeting Copilot
@@ -258,7 +257,6 @@ export default function Home() {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <aside className="w-64 min-h-screen bg-slate-800 text-white p-6">
           <nav className="space-y-4">
             <div className="bg-slate-700 p-3 rounded-xl">
@@ -279,14 +277,11 @@ export default function Home() {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <section className="flex-1 p-8">
-          {/* Login */}
           <div className="mb-8">
             <UserLogin />
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white rounded-2xl shadow-sm p-6">
               <h2 className="text-gray-500 text-sm">
@@ -325,7 +320,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Meetings */}
           <div className="mt-8">
             <Meetings
               meetings={
@@ -337,7 +331,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Upload */}
           <div className="mt-8">
             <TranscriptUpload
               onNewSummary={
@@ -346,7 +339,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Live Transcript */}
           <div className="mt-8">
             <LiveTranscript
               onNewSummary={
@@ -358,7 +350,6 @@ export default function Home() {
             />
           </div>
 
-          {/* AI Summary */}
           <div className="mt-8">
             <SummaryList
               summaries={
@@ -367,7 +358,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Meeting History */}
           <div className="mt-8 bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-2xl font-bold mb-4">
               Meeting History

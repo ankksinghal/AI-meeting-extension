@@ -7,22 +7,10 @@ import {
   useState,
 } from "react";
 
-type Meeting = {
-  summary: string;
-
-  attendees?: {
-    email: string;
-  }[];
-};
-
 type Props = {
   onNewSummary: (
     summary: string
   ) => void;
-
-  selectedMeeting:
-    | Meeting
-    | null;
 };
 
 type TranscriptLine = {
@@ -132,7 +120,6 @@ const SPEAKER_COLOR_CLASSES =
 
 export default function LiveTranscript({
   onNewSummary,
-  selectedMeeting,
 }: Props) {
   const [
     extensionState,
@@ -390,7 +377,7 @@ export default function LiveTranscript({
         setLoading(true);
         setSummaryError("");
         setStatusMessage(
-          "Generating AI summary..."
+          "Cleaning transcript and generating AI summary..."
         );
 
         const cleanedTranscript =
@@ -420,6 +407,7 @@ export default function LiveTranscript({
 
         const data: {
           result?: string;
+          cleanedTranscript?: string;
           error?: string;
         } =
           await response.json();
@@ -442,41 +430,6 @@ export default function LiveTranscript({
         );
 
         clearTranscriptState();
-
-        if (
-          selectedMeeting?.attendees
-        ) {
-          const attendees =
-            selectedMeeting.attendees.map(
-              (attendee) =>
-                attendee.email
-            );
-
-          await fetch(
-            "/api/send-email",
-            {
-              method:
-                "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify(
-                {
-                  attendees,
-
-                  meetingTitle:
-                    selectedMeeting.summary,
-
-                  summary:
-                    data.result,
-                }
-              ),
-            }
-          );
-        }
 
         setStatusMessage(
           "Summary generated. Transcript cleared."

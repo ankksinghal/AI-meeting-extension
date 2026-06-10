@@ -344,9 +344,6 @@ export default function Home() {
               onNewSummary={
                 handleNewSummary
               }
-              selectedMeeting={
-                selectedMeeting
-              }
             />
           </div>
 
@@ -354,6 +351,9 @@ export default function Home() {
             <SummaryList
               summaries={
                 summaries
+              }
+              selectedMeeting={
+                selectedMeeting
               }
             />
           </div>
@@ -363,13 +363,14 @@ export default function Home() {
               Meeting History
             </h2>
 
-            {history.length ===
-              0 ? (
+            {history.length === 0 && (
               <p>
                 No meeting history
                 available
               </p>
-            ) : (
+            )}
+
+            {history.length > 0 && (
               <div className="space-y-4">
                 {history
                   .slice(0, 5)

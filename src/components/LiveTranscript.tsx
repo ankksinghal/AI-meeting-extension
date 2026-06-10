@@ -72,6 +72,7 @@ const SYSTEM_TRANSCRIPT_PATTERNS =
     /browser-extension-\*-buttons/i,
     /return to meet button/i,
     /main screen now has the usual layout/i,
+    /live captions have been turned (off|on)/i,
     /system default/i,
     /white black blue green red yellow cyan magenta/i,
     /microphone array/i,
@@ -117,6 +118,18 @@ const EMPTY_EXTENSION_STATE: ExtensionState =
     activeMeetCode: "",
   };
 
+const SPEAKER_COLOR_CLASSES =
+  [
+    "bg-violet-500",
+    "bg-blue-500",
+    "bg-fuchsia-400",
+    "bg-emerald-400",
+    "bg-amber-400",
+    "bg-rose-400",
+    "bg-cyan-400",
+    "bg-lime-500",
+  ];
+
 export default function LiveTranscript({
   onNewSummary,
   selectedMeeting,
@@ -157,19 +170,46 @@ export default function LiveTranscript({
   const bridgeReadyRef =
     useRef(false);
 
-  const transcriptText =
+  const transcriptListRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
+
+  const displayableTranscriptLines =
     useMemo(
       () =>
-        extensionState.transcriptLines
-          .filter(
-            isDisplayableTranscriptLine
-          )
-          .map(formatTranscriptLine)
-          .join("\n"),
+        extensionState.transcriptLines.filter(
+          isDisplayableTranscriptLine
+        ),
       [
         extensionState.transcriptLines,
       ]
     );
+
+  const transcriptText =
+    useMemo(
+      () =>
+        displayableTranscriptLines
+          .map(formatTranscriptLine)
+          .join("\n"),
+      [
+        displayableTranscriptLines,
+      ]
+    );
+
+  useEffect(() => {
+    const list =
+      transcriptListRef.current;
+
+    if (!list) {
+      return;
+    }
+
+    list.scrollTop =
+      list.scrollHeight;
+  }, [
+    displayableTranscriptLines.length,
+  ]);
 
   useEffect(() => {
     if (
@@ -491,12 +531,58 @@ export default function LiveTranscript({
         </span>
       </div>
 
-      <textarea
-        value={transcriptText}
-        readOnly
-        placeholder="Live transcript will appear here..."
-        className="w-full h-40 border rounded-xl p-4 outline-none bg-white"
-      />
+      <div
+        ref={transcriptListRef}
+        aria-live="polite"
+        className="w-full min-h-40 max-h-80 overflow-y-auto border rounded-xl p-4 bg-white"
+      >
+        {hasTranscript ? (
+          <div className="space-y-5">
+            {displayableTranscriptLines.map(
+              (line) => (
+                <div
+                  key={line.id}
+                  className="flex items-start gap-3"
+                >
+                  <span
+                    className={`mt-1 h-8 w-8 shrink-0 rounded-full ${getSpeakerColorClass(
+                      line.speaker
+                    )}`}
+                    aria-hidden="true"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="font-semibold text-gray-950">
+                        {line.speaker ||
+                          "Unknown speaker"}
+                      </span>
+
+                      {line.timestamp && (
+                        <span className="text-xs text-gray-500">
+                          {formatTranscriptDisplayTime(
+                            line.timestamp
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-1 rounded-xl bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-950">
+                      {applyKnownCorrections(
+                        line.text
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Live transcript will appear here...
+          </p>
+        )}
+      </div>
 
       {!hasTranscript && (
         <p className="mt-3 text-sm text-gray-500">
@@ -627,6 +713,54 @@ function formatTranscriptLine(
     );
 
   return `${speaker}: ${text}`;
+}
+
+function formatTranscriptDisplayTime(
+  timestamp: string
+) {
+  const date =
+    new Date(timestamp);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  return date.toLocaleTimeString(
+    [],
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+}
+
+function getSpeakerColorClass(
+  speaker: string
+) {
+  const normalizedSpeaker =
+    normalizeTranscriptText(
+      speaker ||
+        "Unknown speaker"
+    );
+
+  const hash =
+    Array.from(
+      normalizedSpeaker
+    ).reduce(
+      (total, character) =>
+        total +
+        character.charCodeAt(0),
+      0
+    );
+
+  return SPEAKER_COLOR_CLASSES[
+    hash %
+      SPEAKER_COLOR_CLASSES.length
+  ];
 }
 
 function isDisplayableTranscriptLine(

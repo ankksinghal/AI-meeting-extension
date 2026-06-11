@@ -14,6 +14,14 @@
   background: #2563eb;
 }
 
+.bg-green-600 {
+  background: #16a34a;
+}
+
+.bg-red-600 {
+  background: #dc2626;
+}
+
 .p-4 {
   padding: 16px;
 }
@@ -34,6 +42,10 @@
 
 .mb-4 {
   margin-bottom: 16px;
+}
+
+.mt-3 {
+  margin-top: 12px;
 }
 
 .rounded-lg {
@@ -78,6 +90,14 @@
   background: #1d4ed8;
 }
 
+.hover\:bg-green-700:hover {
+  background: #15803d;
+}
+
+.hover\:bg-red-700:hover {
+  background: #b91c1c;
+}
+
 body {
   margin: 0;
 }
@@ -85,4 +105,9 @@ body {
 button {
   border: 0;
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }

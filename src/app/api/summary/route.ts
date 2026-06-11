@@ -53,7 +53,6 @@ export async function POST(
 
     return Response.json({
       result: summary,
-      cleanedTranscript,
     });
   } catch (error) {
     console.error(

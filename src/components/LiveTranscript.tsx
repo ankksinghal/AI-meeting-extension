@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -28,6 +29,8 @@ type ExtensionState = {
   captureEnabled: boolean;
   activeMeetUrl?: string;
   activeMeetCode?: string;
+  meetingEnded?: boolean;
+  meetingEndedAt?: string;
 };
 
 type ExtensionMessage = {
@@ -101,9 +104,11 @@ const SYSTEM_TRANSCRIPT_PATTERNS =
 const EMPTY_EXTENSION_STATE: ExtensionState =
   {
     transcriptLines: [],
-    captureEnabled: true,
+    captureEnabled: false,
     activeMeetUrl: "",
     activeMeetCode: "",
+    meetingEnded: false,
+    meetingEndedAt: "",
   };
 
 const SPEAKER_COLOR_CLASSES =
@@ -156,6 +161,9 @@ export default function LiveTranscript({
 
   const bridgeReadyRef =
     useRef(false);
+
+  const autoSummaryKeyRef =
+    useRef("");
 
   const transcriptListRef =
     useRef<HTMLDivElement | null>(
@@ -307,44 +315,8 @@ export default function LiveTranscript({
     };
   }, []);
 
-  const setCaptureEnabled = (
-    enabled: boolean
-  ) => {
-    setSummaryError("");
-
-    setStatusMessage(
-      enabled
-        ? "Listening for Google Meet captions. Captions will be enabled automatically when possible."
-        : "Transcript capture stopped."
-    );
-
-    setExtensionState(
-      (current) => ({
-        ...current,
-        captureEnabled:
-          enabled,
-      })
-    );
-
-    postToExtension({
-      type: "AI_MC_SET_CAPTURE",
-      enabled,
-    });
-  };
-
-  const clearTranscript =
-    () => {
-      setSummaryError("");
-
-      setStatusMessage(
-        "Transcript cleared."
-      );
-
-      clearTranscriptState();
-    };
-
   const clearTranscriptState =
-    () => {
+    useCallback(() => {
       setExtensionState(
         (current) => ({
           ...current,
@@ -356,10 +328,23 @@ export default function LiveTranscript({
         type:
           "AI_MC_CLEAR_TRANSCRIPT",
       });
-    };
+    }, []);
+
+  const clearTranscript =
+    useCallback(() => {
+      setSummaryError("");
+
+      setStatusMessage(
+        "Transcript cleared."
+      );
+
+      clearTranscriptState();
+    }, [
+      clearTranscriptState,
+    ]);
 
   const generateSummary =
-    async () => {
+    useCallback(async () => {
       const capturedTranscript =
         transcriptText.trim();
 
@@ -407,7 +392,6 @@ export default function LiveTranscript({
 
         const data: {
           result?: string;
-          cleanedTranscript?: string;
           error?: string;
         } =
           await response.json();
@@ -448,12 +432,55 @@ export default function LiveTranscript({
       } finally {
         setLoading(false);
       }
-    };
+    }, [
+      clearTranscriptState,
+      onNewSummary,
+      transcriptText,
+    ]);
 
   const hasTranscript =
     Boolean(
       transcriptText.trim()
     );
+
+  useEffect(() => {
+    if (
+      !extensionState.meetingEnded ||
+      !hasTranscript ||
+      loading
+    ) {
+      return;
+    }
+
+    const autoSummaryKey = [
+      extensionState.meetingEndedAt ||
+        "ended",
+      displayableTranscriptLines.length,
+    ].join("-");
+
+    if (
+      autoSummaryKeyRef.current ===
+      autoSummaryKey
+    ) {
+      return;
+    }
+
+    autoSummaryKeyRef.current =
+      autoSummaryKey;
+
+    setStatusMessage(
+      "Meeting ended. Generating AI summary automatically..."
+    );
+
+    generateSummary();
+  }, [
+    displayableTranscriptLines.length,
+    extensionState.meetingEnded,
+    extensionState.meetingEndedAt,
+    hasTranscript,
+    loading,
+    generateSummary,
+  ]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -539,7 +566,7 @@ export default function LiveTranscript({
 
       {!hasTranscript && (
         <p className="mt-3 text-sm text-gray-500">
-          No transcript captured yet. Start recording, then speak in Google Meet. Captions will be enabled automatically when possible.
+          No transcript captured yet. Start recording from the Chrome extension popup, then speak in Google Meet. Captions will be enabled automatically when possible.
         </p>
       )}
 
@@ -563,36 +590,6 @@ export default function LiveTranscript({
         )}
 
       <div className="flex flex-col sm:flex-row gap-4 mt-4">
-        {!extensionState.captureEnabled ? (
-          <button
-            onClick={() =>
-              setCaptureEnabled(
-                true
-              )
-            }
-            disabled={
-              !isBridgeReady
-            }
-            className="bg-green-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            Start Recording
-          </button>
-        ) : (
-          <button
-            onClick={() =>
-              setCaptureEnabled(
-                false
-              )
-            }
-            disabled={
-              !isBridgeReady
-            }
-            className="bg-red-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-          >
-            Stop Recording
-          </button>
-        )}
-
         <button
           onClick={
             clearTranscript
@@ -985,6 +982,12 @@ function getConnectionStatus(
 ) {
   if (!isBridgeReady) {
     return "Connecting to Chrome extension...";
+  }
+
+  if (
+    extensionState.meetingEnded
+  ) {
+    return "Meeting ended. AI summary will be generated automatically.";
   }
 
   if (

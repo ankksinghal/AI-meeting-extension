@@ -10,15 +10,17 @@ const ACTIVE_MEET_URL_KEY =
 const ACTIVE_MEET_CODE_KEY =
   "aiMeetingCopilotActiveMeetCode";
 
+const MEETING_ENDED_KEY =
+  "aiMeetingCopilotMeetingEnded";
+
+const MEETING_ENDED_AT_KEY =
+  "aiMeetingCopilotMeetingEndedAt";
+
 const MAX_TRANSCRIPT_LINES = 800;
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log(
-    "AI Meeting Copilot Installed"
-  );
-
   chrome.storage.local.set({
-    [CAPTURE_ENABLED_KEY]: true,
+    [CAPTURE_ENABLED_KEY]: false,
     [TRANSCRIPT_LINES_KEY]: [],
   });
 });
@@ -76,6 +78,10 @@ chrome.runtime.onMessage.addListener(
         {
           [TRANSCRIPT_LINES_KEY]:
             [],
+          [MEETING_ENDED_KEY]:
+            false,
+          [MEETING_ENDED_AT_KEY]:
+            "",
         },
         () => {
           getTranscriptState().then(
@@ -115,6 +121,18 @@ chrome.runtime.onMessage.addListener(
   }
 );
 
+chrome.tabs.onRemoved.addListener(() => {
+  syncActiveMeetTabs();
+});
+
+chrome.tabs.onUpdated.addListener(
+  (_tabId, changeInfo) => {
+    if (changeInfo.url) {
+      syncActiveMeetTabs();
+    }
+  }
+);
+
 async function getTranscriptState(
   options = {}
 ) {
@@ -131,6 +149,8 @@ async function getTranscriptState(
         CAPTURE_ENABLED_KEY,
         ACTIVE_MEET_URL_KEY,
         ACTIVE_MEET_CODE_KEY,
+        MEETING_ENDED_KEY,
+        MEETING_ENDED_AT_KEY,
       ]
     );
 
@@ -139,13 +159,19 @@ async function getTranscriptState(
       state[TRANSCRIPT_LINES_KEY] ||
       [],
     captureEnabled:
-      state[CAPTURE_ENABLED_KEY] !==
-      false,
+      state[CAPTURE_ENABLED_KEY] ===
+      true,
     activeMeetUrl:
       state[ACTIVE_MEET_URL_KEY] ||
       "",
     activeMeetCode:
       state[ACTIVE_MEET_CODE_KEY] ||
+      "",
+    meetingEnded:
+      state[MEETING_ENDED_KEY] ===
+      true,
+    meetingEndedAt:
+      state[MEETING_ENDED_AT_KEY] ||
       "",
   };
 }
@@ -181,6 +207,7 @@ async function rememberMeetTab(
         ACTIVE_MEET_CODE_KEY,
         TRANSCRIPT_LINES_KEY,
         CAPTURE_ENABLED_KEY,
+        MEETING_ENDED_KEY,
       ]
     );
 
@@ -199,9 +226,11 @@ async function rememberMeetTab(
     [ACTIVE_MEET_URL_KEY]: url,
     [ACTIVE_MEET_CODE_KEY]:
       meetingCode || "",
+    [MEETING_ENDED_KEY]: false,
+    [MEETING_ENDED_AT_KEY]: "",
     [CAPTURE_ENABLED_KEY]:
-      state[CAPTURE_ENABLED_KEY] !==
-      false,
+      state[CAPTURE_ENABLED_KEY] ===
+      true,
     ...(shouldResetTranscript
       ? {
           [TRANSCRIPT_LINES_KEY]:
@@ -223,6 +252,7 @@ async function syncActiveMeetTabs() {
     );
 
   if (!meetTabs.length) {
+    await markActiveMeetEnded();
     return;
   }
 
@@ -246,6 +276,46 @@ async function syncActiveMeetTabs() {
       ensureMeetContentScript
     )
   );
+}
+
+async function markActiveMeetEnded() {
+  const state =
+    await chrome.storage.local.get(
+      [
+        ACTIVE_MEET_URL_KEY,
+        TRANSCRIPT_LINES_KEY,
+        MEETING_ENDED_KEY,
+      ]
+    );
+
+  const hasActiveMeet =
+    Boolean(
+      state[ACTIVE_MEET_URL_KEY]
+    );
+
+  const hasTranscript =
+    Array.isArray(
+      state[TRANSCRIPT_LINES_KEY]
+    ) &&
+    state[TRANSCRIPT_LINES_KEY]
+      .length > 0;
+
+  if (
+    !hasActiveMeet ||
+    !hasTranscript ||
+    state[MEETING_ENDED_KEY] ===
+      true
+  ) {
+    return;
+  }
+
+  await chrome.storage.local.set({
+    [ACTIVE_MEET_URL_KEY]: "",
+    [CAPTURE_ENABLED_KEY]: false,
+    [MEETING_ENDED_KEY]: true,
+    [MEETING_ENDED_AT_KEY]:
+      new Date().toISOString(),
+  });
 }
 
 function queryTabs(queryInfo) {
@@ -325,8 +395,8 @@ async function upsertTranscriptLine(
     );
 
   if (
-    state[CAPTURE_ENABLED_KEY] ===
-    false
+    state[CAPTURE_ENABLED_KEY] !==
+    true
   ) {
     return {
       ok: false,

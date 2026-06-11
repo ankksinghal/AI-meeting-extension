@@ -135,11 +135,7 @@
   }
 
   function startMeetCaptionCapture() {
-    console.log(
-      "AI Meeting Copilot: Google Meet detected"
-    );
-
-    let captureEnabled = true;
+    let captureEnabled = false;
     let scanTimer = 0;
     let sequence =
       Number(
@@ -177,7 +173,7 @@
         captureEnabled =
           result[
             CAPTURE_ENABLED_KEY
-          ] !== false;
+          ] === true;
 
         if (captureEnabled) {
           ensureMeetCaptionsEnabled();
@@ -199,7 +195,7 @@
           captureEnabled =
             changes[
               CAPTURE_ENABLED_KEY
-            ].newValue !== false;
+            ].newValue === true;
 
           if (captureEnabled) {
             ensureMeetCaptionsEnabled();
@@ -399,18 +395,10 @@
       }
 
       button.click();
-
-      console.log(
-        "AI Meeting Copilot: enabled Google Meet captions"
-      );
     }
   }
 
   function startDashboardBridge() {
-    console.log(
-      "AI Meeting Copilot: dashboard bridge active"
-    );
-
     const postToDashboard = (
       type,
       payload = {}
@@ -529,6 +517,8 @@
             CAPTURE_ENABLED_KEY,
             "activeMeetUrl",
             "aiMeetingCopilotActiveMeetCode",
+            "aiMeetingCopilotMeetingEnded",
+            "aiMeetingCopilotMeetingEndedAt",
           ].some((key) =>
             Boolean(changes[key])
           );

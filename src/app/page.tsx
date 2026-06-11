@@ -26,9 +26,6 @@ type Meeting = {
     email: string;
   }[];
 
-  organizer?: {
-    email: string;
-  };
 };
 
 type HistoryItem = {
